@@ -2,7 +2,11 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
 
@@ -10,26 +14,64 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    env:
+      REGION: us-east-1
+      REPO: mati-devops-lab
+      AWS_ROLE_ARN: arn:aws:iam::701632806490:role/github-ecr-push-role
+
     steps:
 
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Node
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
-    - name: Install dependencies
-      run: |
-        cd app
-        npm install
+      - name: Install dependencies
+        run: |
+          cd app
+          npm install
 
-    - name: Run tests
-      run: |
-        cd app
-        npm test --if-present
+      - name: Run tests
+        run: |
+          cd app
+          npm test
 
-    - name: Build Docker image
-      run: |
-        docker build -t mati-devops-lab -f docker/Dockerfile .
+      - name: Build Docker image
+        run: |
+          docker build \
+          -t mati-devops-lab:build-${{ github.run_number }} \
+          -t mati-devops-lab:${{ github.sha }} \
+          -t mati-devops-lab:latest \
+          -f docker/Dockerfile .
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.REGION }}
+
+      - name: Get AWS account ID
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "ACCOUNT_ID=$ACCOUNT_ID" >> $GITHUB_ENV
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region $REGION \
+          | docker login \
+          --username AWS \
+          --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+
+      - name: Tag Docker image for ECR
+        run: |
+          docker tag mati-devops-lab:build-${{ github.run_number }} \
+          $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:build-${{ github.run_number }}
+
+      - name: Push image to ECR
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker push \
+          $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:build-${{ github.run_number }}
