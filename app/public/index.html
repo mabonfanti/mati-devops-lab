@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mati's DevOps Lab</title>
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            margin-top: 80px;
+            background-color: #0f172a;
+            color: white;
+        }
+
+        .box {
+            background: #1e293b;
+            padding: 40px;
+            border-radius: 10px;
+            width: 400px;
+            margin: auto;
+        }
+
+        h1 {
+            color: #38bdf8;
+        }
+    </style>
+</head>
+<body>
+
+<div class="box">
+<h1>🚀 Mati's DevOps Lab</h1>
+
+<p id="hostname"></p>
+<p id="version"></p>
+
+</div>
+
+<script>
+fetch('/info')
+.then(res => res.json())
+.then(data => {
+    document.getElementById("hostname").innerText =
+        "Container: " + data.hostname;
+
+    document.getElementById("version").innerText =
+        "Version: " + data.version;
+});
+</script>
+
+</body>
+</html>
