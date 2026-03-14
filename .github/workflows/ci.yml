@@ -9,7 +9,6 @@ permissions:
   contents: read
 
 jobs:
-
   build:
 
     runs-on: ubuntu-latest
@@ -42,10 +41,10 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-          -t mati-devops-lab:build-${{ github.run_number }} \
-          -t mati-devops-lab:${{ github.sha }} \
-          -t mati-devops-lab:latest \
-          -f docker/Dockerfile .
+            -t mati-devops-lab:build-${{ github.run_number }} \
+            -t mati-devops-lab:${{ github.sha }} \
+            -t mati-devops-lab:latest \
+            -f docker/Dockerfile .
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -62,16 +61,39 @@ jobs:
         run: |
           aws ecr get-login-password --region $REGION \
           | docker login \
-          --username AWS \
-          --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+            --username AWS \
+            --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
 
       - name: Tag Docker image for ECR
         run: |
           docker tag mati-devops-lab:${{ github.sha }} \
-          $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:${{ github.sha }}
+            $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:${{ github.sha }}
 
       - name: Push image to ECR
         if: github.ref == 'refs/heads/main'
         run: |
-          docker push \
-          $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:${{ github.sha }}
+          docker push $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:${{ github.sha }}
+
+      - name: Set IMAGE_URI
+        run: |
+          echo "IMAGE_URI=$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Render task definition
+        run: |
+          jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' infra/task-definition-utf8.json > task-def-rendered.json
+
+      - name: Register task definition
+        id: register-task
+        run: |
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://task-def-rendered.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
+
+      - name: Deploy
+        run: |
+          aws ecs update-service \
+            --cluster mati-devops-lab-cluster \
+            --service mati-devops-lab-service \
+            --task-definition $TASK_DEF_ARN
