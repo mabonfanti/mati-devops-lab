@@ -67,11 +67,11 @@ jobs:
 
       - name: Tag Docker image for ECR
         run: |
-          docker tag mati-devops-lab:build-${{ github.run_number }} \
-          $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:build-${{ github.run_number }}
+          docker tag mati-devops-lab:${{ github.sha }} \
+          $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:${{ github.sha }}
 
       - name: Push image to ECR
         if: github.ref == 'refs/heads/main'
         run: |
           docker push \
-          $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:build-${{ github.run_number }}
+          $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:${{ github.sha }}

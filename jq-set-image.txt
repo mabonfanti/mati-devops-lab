@@ -1,0 +1,1 @@
+.containerDefinitions[0].image = $IMAGE
