@@ -1,0 +1,1 @@
+image = "701632806490.dkr.ecr.us-east-1.amazonaws.com/mati-devops-lab:8f61a2095a535db1faf89dc792c6a6e831c437cd"
